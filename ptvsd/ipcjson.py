@@ -305,9 +305,10 @@ class IpcChannel(object):
                 self.process_one_message()
                 _trace('self.__exit is ', self.__exit)
             except Exception:
-                if not self.__exit:
-                    raise
-                # TODO: log the error?
+                if self.__exit:
+                    # TODO: log the error?
+                    continue
+                raise
 
     def process_one_message(self):
         # TODO: docstring
@@ -330,17 +331,22 @@ class IpcChannel(object):
         _trace('Received ', msg)
 
         try:
-            if msg['type'] == 'request':
-                self.on_request(msg)
-            elif msg['type'] == 'response':
-                self.on_response(msg)
-            elif msg['type'] == 'event':
-                self.on_event(msg)
-            else:
-                self.on_invalid_request(msg, {})
+            with convert_eof(show=None):
+                if msg['type'] == 'request':
+                    self.on_request(msg)
+                elif msg['type'] == 'response':
+                    self.on_response(msg)
+                elif msg['type'] == 'event':
+                    self.on_event(msg)
+                else:
+                    self.on_invalid_request(msg, {})
         except AssertionError:
             raise
+        except EOFError:
+            # We ignore closed sockets when sending responses.
+            pass
         except Exception:
+            # An error while sending is not fatal.
             _trace('Error ', traceback.format_exc)
             traceback.print_exc()
 

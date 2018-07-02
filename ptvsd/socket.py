@@ -4,6 +4,8 @@ from collections import namedtuple
 import contextlib
 import errno
 import socket
+import sys
+import traceback
 try:
     from urllib.parse import urlparse
 except ImportError:
@@ -41,17 +43,27 @@ CLOSED = (
 EOF = NOT_CONNECTED + CLOSED
 
 
+def _py2_traceback(exc):
+    if sys.version_info < (3,):
+        traceback.print_exc()
+
+
 @contextlib.contextmanager
-def convert_eof():
+def convert_eof(show=_py2_traceback):
     """A context manager to convert some socket errors into EOFError."""
+    if show is None:
+        show = (lambda _: None)
     try:
         yield
-    except ConnectionResetError:
+    except ConnectionResetError as exc:
+        show(exc)
         raise EOFError
-    except BrokenPipeError:
+    except BrokenPipeError as exc:
+        show(exc)
         raise EOFError
-    except OSError as exc:
+    except (socket.error, OSError, IOError) as exc:
         if exc.errno in EOF:
+            show(exc)
             raise EOFError
         raise
 
