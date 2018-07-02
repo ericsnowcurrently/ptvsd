@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from collections import namedtuple
 import sys
 try:
@@ -7,6 +9,7 @@ except ImportError:
 
 from _pydevd_bundle import pydevd_comm
 
+from tests.helpers import socket
 from tests.helpers.protocol import StreamFailure
 
 # TODO: Everything here belongs in a proper pydevd package.
@@ -46,10 +49,16 @@ def iter_messages(stream, stop=lambda: False):
     while not stop():
         # TODO: Loop with a timeout instead of waiting indefinitely on recv().
         try:
-            line = next(lines)
+            with socket.convert_eof(show=None):
+                try:
+                    line = next(lines)
+                except StopIteration:
+                    raise EOFError
             if not line.strip():
                 continue
             yield parse_message(line)
+        except EOFError:
+            break
         except Exception as exc:
             yield StreamFailure('recv', None, exc)
 
