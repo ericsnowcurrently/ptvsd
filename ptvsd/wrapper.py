@@ -367,7 +367,8 @@ class PydevdSocket(object):
         pipe_r = self.pipe_r
         if pipe_r is None:
             return 0
-        return os.readv(pipe_r, [buf])
+        data = os.readv(pipe_r, [buf])
+        return data
 
     # In Python 2, we must unquote before we decode, because UTF-8 codepoints
     # are encoded first and then quoted as individual bytes. In Python 3,

@@ -302,29 +302,35 @@ class MessageDaemon(Daemon):
         )
         self._listener.start()
 
-    def _listen(self):
-        @contextlib.contextmanager
-        def hide_eof():
-            try:
-                with socket.convert_eof(show=None):
-                    yield
-            except EOFError:
-                # TODO: try reconnecting for some?
-                warnings.warn('connection closed', stacklevel=3)
+    @contextlib.contextmanager
+    def _hide_eof(self):
+        try:
+            with socket.convert_eof(show=None):
+                yield
+        except EOFError:
+            # TODO: try reconnecting for some?
+            warnings.warn('connection closed', stacklevel=3)
 
+    def _new_sockfile(self):
+        with self._hide_eof():
+            return self._sock.makefile('rb')
+        return None
+
+    def _listen(self):
         # Wrap each part so we can more easily identify when
         # the socket closed.
-        with hide_eof():
-            sockfile = self._sock.makefile('rb')
+        sockfile = self._new_sockfile()
+        if sockfile is None:  # socket closed
+            return
         try:
-            with hide_eof():
+            with self._hide_eof():
                 for msg in self._protocol.iter(sockfile, lambda: self._closed):
                     if isinstance(msg, StreamFailure):
                         self._failures.append(msg)
                     else:
                         self._add_received(msg)
         finally:
-            with hide_eof():
+            with self._hide_eof():
                 sockfile.close()
 
     def _add_received(self, msg):
