@@ -416,11 +416,14 @@ class PydevdSocket(object):
         s = u'{}\t{}\t{}\n'.format(cmd_id, seq, args)
         return seq, s
 
+    def _write_to_pipe(self, raw):
+        os.write(self.pipe_w, raw.encode('utf8'))
+
     def pydevd_notify(self, cmd_id, args):
         # TODO: docstring
         seq, s = self.make_packet(cmd_id, args)
         _util.log_pydevd_msg(cmd_id, seq, args, inbound=False)
-        os.write(self.pipe_w, s.encode('utf8'))
+        self._write_to_pipe(s)
 
     def pydevd_request(self, loop, cmd_id, args):
         # TODO: docstring
@@ -429,7 +432,7 @@ class PydevdSocket(object):
         fut = loop.create_future()
         with self.lock:
             self.requests[seq] = loop, fut
-            os.write(self.pipe_w, s.encode('utf8'))
+            self._write_to_pipe(s)
         return fut
 
 
