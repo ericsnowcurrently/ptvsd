@@ -139,6 +139,12 @@ class FakePyDevd(protocol.MessageDaemon):
                 if actual != seq:
                     return False
             return True
+
+        if seq is None:
+            handlername = '<cmd id={}>'.format(cmdid)
+        else:
+            handlername = '<cmd id={} seq={}>'.format(cmdid, seq)
+        kwargs.setdefault('handlername', handlername)
         with self.wait_for_message(match, req=None, **kwargs):
             yield
 
