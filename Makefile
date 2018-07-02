@@ -44,8 +44,7 @@ ci-lint: depends lint
 
 .PHONY: ci-test
 ci-test: depends
-	# For now we use --quickpy2.
-	$(PYTHON) -m tests -v --full --no-network --quick-py2
+	$(PYTHON) -m tests -v --full --no-network
 
 .PHONY: ci-coverage
 ci-coverage: depends

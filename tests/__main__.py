@@ -74,12 +74,6 @@ def parse_cmdline(argv=None):
         action="store_true",
         dest="quick"
     )
-    parser.add_argument(
-        "--quick-py2",
-        help=("Only do the tests under test/ptvsd, that are compatible "
-              "with Python 2.x."),
-        action="store_true"
-    )
     # these destinations have 2 switches, be explicit about the default
     parser.set_defaults(quick=False)
     parser.set_defaults(network=True)
@@ -126,8 +120,6 @@ def convert_argv(argv=None):
         # Do discovery.
         quickroot = os.path.join(TEST_ROOT, 'ptvsd')
         if config.quick:
-            start = quickroot
-        elif config.quick_py2 and sys.version_info[0] == 2:
             start = quickroot
         else:
             start = PROJECT_ROOT
