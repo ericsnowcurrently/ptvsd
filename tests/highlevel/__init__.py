@@ -138,6 +138,12 @@ class PyDevdLifecycle(object):
 
     @contextlib.contextmanager
     def _wait_for_initialized(self):
+        version = self._fix.fake.VERSION
+        with self._fix.wait_for_request(CMD_VERSION, version):
+            yield
+
+    @contextlib.contextmanager
+    def _wait_for_started(self):
         with self._fix.wait_for_command(CMD_REDIRECT_OUTPUT):
             with self._fix.wait_for_command(CMD_SET_PROJECT_ROOTS):
                 with self._fix.wait_for_command(CMD_RUN):
@@ -266,6 +272,7 @@ class VSCLifecycle(object):
 
         with self._fix.wait_for_event('initialized'):
             self._initialize(**initargs)
+        with self._wait_for_debugger_init():
             self._send_request(command, **kwargs)
 
         if threadnames:
@@ -273,7 +280,7 @@ class VSCLifecycle(object):
                                   **dict(default_threads=default_threads))
 
         self._handle_config(**config or {})
-        with self._wait_for_debugger_init():
+        with self._wait_for_debugger_start():
             self._send_request('configurationDone')
 
         if process:
@@ -296,6 +303,14 @@ class VSCLifecycle(object):
         else:
                 yield
 
+    @contextlib.contextmanager
+    def _wait_for_debugger_start(self):
+        if self._pydevd:
+            with self._pydevd._wait_for_started():
+                yield
+        else:
+                yield
+
     def _initialize(self, **reqargs):
         """
         See https://code.visualstudio.com/docs/extensionAPI/api-debugging#_the-vs-code-debug-protocol-in-a-nutshell
@@ -304,8 +319,6 @@ class VSCLifecycle(object):
         def handle_response(resp, _):
             self._capabilities = resp.body
 
-        if self._pydevd:
-            self._pydevd._initialize()
         self._send_request(
             'initialize',
             dict(self.MIN_INITIALIZE_ARGS, **reqargs),
@@ -461,6 +474,13 @@ class PyDevdFixture(FixtureBase):
             yield
         if self._hidden:
             self.msgs.next_request()
+
+    @contextlib.contextmanager
+    def wait_for_request(self, cmdid, text, reqid=None, **kwargs):
+        if self._hidden:
+            self.msgs.next_request()
+        with self.fake.wait_for_request(cmdid, text, reqid, **kwargs):
+            yield
 
     def set_response(self, cmdid, payload, **kwargs):
         self.fake.add_pending_response(cmdid, payload, **kwargs)
