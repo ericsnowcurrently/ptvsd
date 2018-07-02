@@ -5,7 +5,8 @@ from _pydevd_bundle.pydevd_comm import (
     CMD_VERSION,
 )
 
-from ._pydevd import parse_message, encode_message, iter_messages, Message
+from ._pydevd import (
+    parse_message, encode_message, iter_messages, Message, CMDID)
 from tests.helpers import protocol, socket
 from ._binder import BinderBase
 
@@ -121,6 +122,7 @@ class FakePyDevd(protocol.MessageDaemon):
 
     @contextlib.contextmanager
     def wait_for_command(self, cmdid, seq=None, **kwargs):
+        cmdid = CMDID.from_raw(cmdid)
         kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
 
         def match(msg):
@@ -141,9 +143,9 @@ class FakePyDevd(protocol.MessageDaemon):
             return True
 
         if seq is None:
-            handlername = '<cmd id={}>'.format(cmdid)
+            handlername = '<cmd id={!r}>'.format(cmdid)
         else:
-            handlername = '<cmd id={} seq={}>'.format(cmdid, seq)
+            handlername = '<cmd id={!r} seq={}>'.format(cmdid, seq)
         kwargs.setdefault('handlername', handlername)
         with self.wait_for_message(match, req=None, **kwargs):
             yield
@@ -165,7 +167,7 @@ class FakePyDevd(protocol.MessageDaemon):
         respid = cmdid
 
         if handlername is None:
-            handlername = '<request cmdid={}>'.format(cmdid)
+            handlername = '<request cmdid={!r}>'.format(CMDID.from_raw(reqid))
 
         def handle_request(req, send_message):
             try:
