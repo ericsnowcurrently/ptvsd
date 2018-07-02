@@ -262,7 +262,8 @@ class MessageDaemon(Daemon):
 
     @contextlib.contextmanager
     def wait_for_message(self, match, req=None, handler=None,
-                         handlername=None, caller=None, timeout=1):
+                         handlername=None, caller=None,
+                         timeout=1, stacklevel=1):
         """Return a context manager that will wait for a matching message."""
         lock = threading.Lock()
         lock.acquire()
@@ -283,7 +284,8 @@ class MessageDaemon(Daemon):
             lock.release()
         else:
             msg = 'timed out after {} seconds waiting for message ({})'
-            warnings.warn(msg.format(timeout, handlername))
+            warnings.warn(msg.format(timeout, handlername),
+                          stacklevel=stacklevel + 2)
 
     def reset(self, *initial, **kwargs):
         """Clear the recorded messages."""

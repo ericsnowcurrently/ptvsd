@@ -121,6 +121,8 @@ class FakePyDevd(protocol.MessageDaemon):
 
     @contextlib.contextmanager
     def wait_for_command(self, cmdid, seq=None, **kwargs):
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
+
         def match(msg):
             #msg = parse_message(msg)
             try:

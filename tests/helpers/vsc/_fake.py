@@ -99,6 +99,7 @@ class FakeVSC(protocol.MessageDaemon):
 
         kwargs.setdefault('handlername',
                           '<request cmd={} seq={}>'.format(command, reqseq))
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
         return self.wait_for_message(match, req, **kwargs)
 
     def wait_for_event(self, event, **kwargs):
@@ -114,6 +115,7 @@ class FakeVSC(protocol.MessageDaemon):
 
         kwargs.setdefault('handlername',
                           '<event {}>'.format(event))
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
         return self.wait_for_message(match, req=None, **kwargs)
 
     # internal methods

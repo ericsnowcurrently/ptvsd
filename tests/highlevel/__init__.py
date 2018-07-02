@@ -142,6 +142,8 @@ class PyDevdLifecycle(object):
             with self._fix.wait_for_command(CMD_SET_PROJECT_ROOTS):
                 with self._fix.wait_for_command(CMD_RUN):
                     yield
+                pass  # ...for proper warnings line
+            pass  # ...for proper warnings line
 
     def _initialize(self):
         version = self._fix.fake.VERSION
@@ -279,6 +281,7 @@ class VSCLifecycle(object):
                 with self._fix.wait_for_event('thread'):
                     if self._pydevd:
                         self._pydevd.notify_main_thread()
+                pass  # ...for proper warnings line
 
         if reset:
             self._fix.reset()
@@ -453,6 +456,7 @@ class PyDevdFixture(FixtureBase):
 
     @contextlib.contextmanager
     def wait_for_command(self, cmdid, *args, **kwargs):
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
         with self.fake.wait_for_command(cmdid, *args, **kwargs):
             yield
         if self._hidden:
@@ -561,8 +565,13 @@ class VSCFixture(FixtureBase):
             # TODO: Fall back to self.daemon.session._msgprocessor?
             return None
 
-    def send_request(self, cmd, args=None, handle_response=None, timeout=1):
-        kwargs = dict(args or {}, handler=handle_response)
+    def send_request(self, cmd, args=None, handle_response=None, timeout=1,
+                     stacklevel=1):
+        kwargs = dict(
+            args or {},
+            handler=handle_response,
+            stacklevel=stacklevel + 1,
+        )
         with self._wait_for_response(cmd, timeout=timeout, **kwargs) as req:
             self.fake.send_request(req)
         return req
@@ -571,8 +580,10 @@ class VSCFixture(FixtureBase):
     def _wait_for_response(self, command, *args, **kwargs):
         handle = kwargs.pop('handler', None)
         timeout = kwargs.pop('timeout', 1)
+        stacklevel = kwargs.pop('stacklevel', 1) + 2
         req = self.msgs.new_request(command, *args, **kwargs)
-        with self.fake.wait_for_response(req, handler=handle, timeout=timeout):
+        with self.fake.wait_for_response(req, handler=handle, timeout=timeout,
+                                         stacklevel=stacklevel):
             yield req
         if self._hidden:
             self.msgs.next_response()
@@ -582,18 +593,19 @@ class VSCFixture(FixtureBase):
         if 'caller' not in kwargs:
             caller = _get_caller()
             kwargs['caller'] = (caller.f_code.co_filename, caller.f_lineno)
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
         with self.fake.wait_for_event(event, *args, **kwargs):
             yield
         if self._hidden:
             self.msgs.next_event()
 
     @contextlib.contextmanager
-    def wait_for_events(self, events):
+    def wait_for_events(self, events, stacklevel=1):
         if not events:
             yield
             return
-        with self.wait_for_events(events[1:]):
-            with self.wait_for_event(events[0]):
+        with self.wait_for_events(events[1:], stacklevel=stacklevel):
+            with self.wait_for_event(events[0], stacklevel=stacklevel + 2):
                 yield
 
     def get_threads(self, name='MainThread'):
@@ -737,12 +749,13 @@ class HighlevelFixture(object):
 
     @contextlib.contextmanager
     def wait_for_event(self, event, *args, **kwargs):
+        kwargs['stacklevel'] = kwargs.pop('stacklevel', 1) + 2
         with self._vsc.wait_for_event(event, *args, **kwargs):
             yield
 
     @contextlib.contextmanager
-    def wait_for_events(self, events):
-        with self._vsc.wait_for_events(events):
+    def wait_for_events(self, events, stacklevel=1):
+        with self._vsc.wait_for_events(events, stacklevel=stacklevel + 2):
             yield
 
     @contextlib.contextmanager
