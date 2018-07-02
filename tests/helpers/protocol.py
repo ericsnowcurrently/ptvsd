@@ -2,7 +2,6 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 import contextlib
-import errno
 import threading
 import warnings
 
@@ -302,27 +301,29 @@ class MessageDaemon(Daemon):
         self._listener.start()
 
     def _listen(self):
+        @contextlib.contextmanager
+        def hide_eof():
+            try:
+                with socket.convert_eof(show=None):
+                    yield
+            except EOFError:
+                # TODO: try reconnecting for some?
+                warnings.warn('connection closed', stacklevel=3)
+
+        # Wrap each part so we can more easily identify when
+        # the socket closed.
+        with hide_eof():
+            sockfile = self._sock.makefile('rb')
         try:
-            with contextlib.closing(self._sock.makefile('rb')) as sockfile:
+            with hide_eof():
                 for msg in self._protocol.iter(sockfile, lambda: self._closed):
                     if isinstance(msg, StreamFailure):
                         self._failures.append(msg)
                     else:
                         self._add_received(msg)
-        except BrokenPipeError:
-            if self._closed:
-                return
-            # TODO: try reconnecting?
-            raise
-        except OSError as exc:
-            if exc.errno in (errno.EPIPE, errno.ESHUTDOWN):  # BrokenPipeError
-                return
-            if exc.errno == 9:  # socket closed
-                return
-            if exc.errno == errno.EBADF:  # socket closed
-                return
-            # TODO: try reconnecting?
-            raise
+        finally:
+            with hide_eof():
+                sockfile.close()
 
     def _add_received(self, msg):
         if self.PRINT_RECEIVED_MESSAGES:
