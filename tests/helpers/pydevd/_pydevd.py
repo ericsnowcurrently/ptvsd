@@ -99,7 +99,23 @@ class CMDID(int):
 
     @property
     def name(self):
-        return pydevd_comm.ID_TO_MEANING.get(str(self), '???')
+        return _resolve_cmd_id(self)
+
+
+def _resolve_cmd_id(cmdid):
+    cmdid = str(cmdid)
+    try:
+        return pydevd_comm.ID_TO_MEANING[cmdid]
+    except KeyError:
+        for name, value in vars(pydevd_comm).items():
+            if not name.startswith('CMD_'):
+                continue
+            if cmdid == str(value):
+                break
+        else:
+            name = '???'
+        pydevd_comm.ID_TO_MEANING[cmdid] = name
+        return name
 
 
 class Message(namedtuple('Message', 'cmdid seq payload')):
