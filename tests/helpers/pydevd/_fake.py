@@ -120,35 +120,23 @@ class FakePyDevd(protocol.MessageDaemon):
             (lambda msg, send: self.handle_request(msg, send, handler)),
         )
 
-    @contextlib.contextmanager
     def wait_for_command(self, cmdid, seq=None, **kwargs):
-        cmdid = CMDID.from_raw(cmdid)
-        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
+        return self._wait_for_command('cmd', cmdid, seq, **kwargs)
 
-        def match(msg):
-            #msg = parse_message(msg)
-            try:
-                actual = msg.cmdid
-            except AttributeError:
-                return False
-            if actual != cmdid:
-                return False
-            if seq is not None:
-                try:
-                    actual = msg.seq
-                except AttributeError:
-                    return False
-                if actual != seq:
-                    return False
-            return True
+    def wait_for_request(self, cmdid, text, reqid=None, **kwargs):
+        if reqid is None:
+            reqid = cmdid
+        respid = cmdid
 
-        if seq is None:
-            handlername = '<cmd id={!r}>'.format(cmdid)
-        else:
-            handlername = '<cmd id={!r} seq={}>'.format(cmdid, seq)
-        kwargs.setdefault('handlername', handlername)
-        with self.wait_for_message(match, req=None, **kwargs):
-            yield
+        def handle_msg(req, send_msg):
+            resp = Message(respid, req.seq, text)
+            send_msg(resp)
+        return self._wait_for_command(
+            'request',
+            reqid,
+            handler=handle_msg,
+            **kwargs
+        )
 
     def send_response(self, msg):
         """Send a response message to the adapter (ptvsd)."""
@@ -168,19 +156,47 @@ class FakePyDevd(protocol.MessageDaemon):
 
         if handlername is None:
             handlername = '<request cmdid={!r}>'.format(CMDID.from_raw(reqid))
+        match = self._new_matcher(reqid)
 
         def handle_request(req, send_message):
-            try:
-                cmdid, seq, _ = req
-            except (IndexError, ValueError):
-                req = req.msg
-                cmdid, seq, _ = req
-            if cmdid != reqid:
-                return False
-            resp = Message(respid, seq, text)
+            resp = Message(respid, req.seq, text)
             send_message(resp)
+        self.add_matcher(match, handle_request, handlername=handlername)
+
+    # internal methods
+
+    @contextlib.contextmanager
+    def _wait_for_command(self, kind, cmdid, seq=None, **kwargs):
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 2
+
+        cmdid = CMDID.from_raw(cmdid)
+        if seq is None:
+            handlername = '<{} id={!r}>'.format(kind, cmdid)
+        else:
+            handlername = '<{} id={!r} seq={}>'.format(kind, cmdid, seq)
+        kwargs.setdefault('handlername', handlername)
+
+        match = self._new_matcher(cmdid, seq)
+        with self.wait_for_message(match, req=None, **kwargs):
+            yield
+
+    def _new_matcher(self, cmdid, seq=None):
+        def match(msg):
+            try:
+                actual = msg.cmdid
+            except AttributeError:
+                return False
+            if actual != cmdid:
+                return False
+            if seq is not None:
+                try:
+                    actual = msg.seq
+                except AttributeError:
+                    return False
+                if actual != seq:
+                    return False
             return True
-        self.add_handler(handle_request, handlername)
+        return match
 
     def _close(self):
         self.binder._done()

@@ -260,22 +260,30 @@ class MessageDaemon(Daemon):
         self._handlers.append(entry)
         return handler
 
+    def add_matcher(self, match, handler, **kwargs):
+        """Add the given handler to the list of possible handlers."""
+        def handle_message(msg, send_message):
+            if not match(msg):
+                return False
+            handler(msg, send_message)
+            return True
+        return self.add_handler(handle_message, **kwargs)
+
     @contextlib.contextmanager
-    def wait_for_message(self, match, req=None, handler=None,
-                         handlername=None, caller=None,
-                         timeout=1, stacklevel=1):
+    def wait_for_message(self, match, req=None, handler=None, **kwargs):
         """Return a context manager that will wait for a matching message."""
+        timeout = kwargs.pop('timeout', 1)
+        stacklevel = kwargs.pop('stacklevel', 1)
+        handlername = kwargs.get('handlername', None)
+
         lock = threading.Lock()
         lock.acquire()
 
         def handle_message(msg, send_message):
-            if not match(msg):
-                return False
             lock.release()
             if handler is not None:
                 handler(msg, send_message)
-            return True
-        self.add_handler(handle_message, handlername, caller)
+        self.add_matcher(match, handle_message, **kwargs)
 
         yield req
 

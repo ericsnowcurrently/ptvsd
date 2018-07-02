@@ -122,6 +122,17 @@ class Message(namedtuple('Message', 'cmdid seq payload')):
     """A de-seralized PyDevd message."""
 
     @classmethod
+    def from_raw(cls, raw):
+        if isinstance(raw, cls):
+            return raw
+        elif isinstance(raw, (tuple, list)):
+            return cls(*raw)
+        elif isinstance(raw, dict):
+            return cls(**raw)
+        else:
+            return cls.parse_payload(raw)
+
+    @classmethod
     def from_bytes(cls, raw):
         """Return a RawMessage corresponding to the given raw message."""
         raw = RawMessage.from_bytes(raw)
