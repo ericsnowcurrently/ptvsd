@@ -143,7 +143,7 @@ class LifecycleTests(TestBase, unittest.TestCase):
             self.fix.binder.wait_until_done()
             received = self.vsc.received
 
-        self.assert_vsc_received(received, [
+        self.assert_vsc_received(received[:7], [
             self.new_event(
                 'output',
                 category='telemetry',
@@ -160,6 +160,7 @@ class LifecycleTests(TestBase, unittest.TestCase):
                 startMethod='attach',
             )),
             self.new_event('thread', reason='started', threadId=1),
+            #self.new_event('thread', reason='exited', threadId=1),
             #self.new_event('exited', exitCode=0),
             #self.new_event('terminated'),
         ])
