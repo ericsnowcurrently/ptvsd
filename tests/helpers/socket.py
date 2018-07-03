@@ -74,6 +74,46 @@ def send_as_write(sock):
     return write
 
 
+def iter_lines(sock, stop=(lambda: False), buffered=True):
+    if buffered:
+        with convert_eof(show=None):
+            data = sock.recv(1024)
+        if not data:  # EOF
+            raise EOFError('closed')
+        while not stop():
+            while True:
+                try:
+                    index = data.index(b'\n')
+                except ValueError:
+                    break
+                line = data[:index + 1]
+                yield line
+                data = data[index + 1:]
+
+            with convert_eof(show=None):
+                chunk = sock.recv(1024)
+            if not chunk:  # EOF
+                raise EOFError('closed')
+            data += chunk
+            #try:
+            #    index = chunk.index(b'\n')
+            #except ValueError:
+            #    data += chunk
+            #else:
+            #    line = data + chunk[:index + 1]
+            #    yield line
+            #    data = data[index + 1:]
+    else:
+        data = b''
+        while not stop():
+            with convert_eof(show=None):
+                c = sock.recv(1)
+            data += c
+            if c == b'\n':
+                yield data
+                data = b''
+
+
 @contextlib.contextmanager
 def timeout(sock, timeout):
     """A context manager that sets a timeout on blocking socket ops."""
