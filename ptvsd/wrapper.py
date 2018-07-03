@@ -15,6 +15,7 @@ import site
 import socket
 import sys
 import threading
+import time
 import traceback
 try:
     import urllib
@@ -1246,7 +1247,14 @@ class VSCodeMessageProcessor(VSCLifecycleMsgProcessor):
 
     def _stop_event_loop(self):
         self.loop.stop()
-        self.event_loop_thread.join(WAIT_FOR_THREAD_FINISH_TIMEOUT)
+        if sys.version_info >= (3,):
+            self.event_loop_thread.join(WAIT_FOR_THREAD_FINISH_TIMEOUT)
+        else:
+            # FYI, in Python 2.7 it appears that threading._time is set
+            # to None during interpreter shutdown.  This may surface as
+            # a traceback.  We avoid this by sleeping instead.  This
+            # gives the thread a chance to finish at least.
+            time.sleep(1)
 
     # async helpers
 
