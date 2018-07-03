@@ -1,10 +1,14 @@
 import os
+import os.path
 import ptvsd
 import unittest
 
 from tests.helpers.threading import get_locked_and_waiter
 from tests.helpers.workspace import Workspace, PathEntry
 from tests.helpers.vsc import parse_message, VSCMessages
+
+
+ROOT = os.path.dirname(os.path.dirname(ptvsd.__file__))
 
 
 class ANYType(object):
@@ -45,6 +49,14 @@ def _match_value(value, expected, allowextra=True):
         return value == expected
 
 
+def _match_response(msg, command, **body):
+    if msg.type != 'response':
+        return False
+    if msg.command != command:
+        return False
+    return _match_value(msg.body, body)
+
+
 def _match_event(msg, event, **body):
     if msg.type != 'event':
         return False
@@ -53,20 +65,58 @@ def _match_event(msg, event, **body):
     return _match_value(msg.body, body)
 
 
-def _get_version(received, actual=ptvsd.__version__):
-    version = actual
-    for msg in received:
-        if _match_event(msg, 'output', data={'version': ANY}):
-            if msg.body['data']['version'] != actual:
-                version = '0+unknown'
-            break
-    return version
+def _find_responses(received, command, **body):
+    for i, msg in enumerate(received):
+        if _match_response(msg, command, **body):
+            yield i, msg
 
 
 def _find_events(received, event, **body):
     for i, msg in enumerate(received):
         if _match_event(msg, event, **body):
             yield i, msg
+
+
+def _insert_messages(received, match, *msgs):
+    if isinstance(match, str):
+        def match(i, msg, marker=match):
+            if msg is marker:
+                return True, None
+            elif i < 0:
+                raise ValueError('marker {!r} not found'.format(marker))
+            return False, msg
+    elif isinstance(match, int):
+        def match(i, msg, index=match):
+            if i == index:
+                return True, msg
+            elif i < 0:
+                raise ValueError('index {} out of range'.format(index))
+            return False, msg
+
+    received = iter(received)
+    # Yield until there's a match.
+    for i, msg in enumerate(received):
+        stop, keep = match(i, msg)
+        if stop:
+            break
+        seq = _get_seq(msg) + 1
+        yield msg
+    else:
+        match(-1, None)  # Handle not-matched.
+        if not msgs:
+            return
+        seq = _get_seq(msgs[0])
+    # Insert the messages.
+    for msg in msgs:
+        msg, seq = _fix_seq(msg, seq)
+        yield msg
+    # Yield the remainder.
+    if keep is not None:
+        msg, seq = _fix_seq(keep, seq)
+        yield msg
+    for msg in received:
+        msg, seq = _fix_seq(msg, seq)
+        yield msg
 
 
 def _strip_messages(received, match_msg):
@@ -117,6 +167,34 @@ def _strip_pydevd_output(out):
     pre, sep, out = out.partition(
         'pydev debugger: starting' + os.linesep + os.linesep)
     return out if sep else pre
+
+
+def _get_seq(msg):
+    try:
+        return msg.seq
+    except AttributeError:
+        return msg['seq']
+
+
+def _fix_seq(msg, seq):
+    try:
+        replace = msg._replace
+    except AttributeError:
+        # TODO: deep copy?
+        msg = dict(msg, seq=seq)
+    else:
+        msg = replace(seq=seq)
+    return msg, seq + 1
+
+
+def _get_version(received, actual=ptvsd.__version__):
+    version = actual
+    for msg in received:
+        if _match_event(msg, 'output', data={'version': ANY}):
+            if msg.body['data']['version'] != actual:
+                version = '0+unknown'
+            break
+    return version
 
 
 def lifecycle_handshake(session, command='launch', options=None,

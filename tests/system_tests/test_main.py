@@ -1,9 +1,7 @@
 import os
-import os.path
 from textwrap import dedent
 import unittest
 
-import ptvsd
 from ptvsd.socket import Address
 from ptvsd.wrapper import INITIALIZE_RESPONSE  # noqa
 from tests.helpers.debugadapter import DebugAdapter
@@ -12,11 +10,10 @@ from tests.helpers.lock import LockTimeoutError
 from tests.helpers.script import find_line, set_lock, set_release
 
 from . import (
+    ROOT,
     _strip_pydevd_output,
     _strip_newline_output_events, lifecycle_handshake, TestsBase,
     LifecycleTestsBase, _strip_output_event, _strip_exit, _find_events)
-
-ROOT = os.path.dirname(os.path.dirname(ptvsd.__file__))
 
 
 class CLITests(TestsBase, unittest.TestCase):
