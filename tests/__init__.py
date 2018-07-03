@@ -11,7 +11,7 @@ import ptvsd  # noqa
 from ptvsd._vendored import list_all as vendored
 
 
-TEST_ROOT = os.path.dirname(__file__)  # noqa
+TEST_ROOT = os.path.abspath(os.path.dirname(__file__))  # noqa
 PROJECT_ROOT = os.path.dirname(TEST_ROOT)  # noqa
 VENDORED_ROOTS = vendored(resolve=True)  # noqa
 
