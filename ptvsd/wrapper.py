@@ -43,7 +43,7 @@ from ptvsd.exit_handlers import kill_current_proc
 from ptvsd.pathutils import PathUnNormcase  # noqa
 from ptvsd.safe_repr import SafeRepr  # noqa
 from ptvsd.version import __version__  # noqa
-from ptvsd.socket import TimeoutError  # noqa
+from ptvsd.socket import TimeoutError, convert_eof  # noqa
 
 
 WAIT_FOR_THREAD_FINISH_TIMEOUT = 1  # seconds
@@ -417,7 +417,11 @@ class PydevdSocket(object):
         return seq, s
 
     def _write_to_pipe(self, raw):
-        os.write(self.pipe_w, raw.encode('utf8'))
+        pipe = self.pipe_w
+        if pipe is None:
+            return
+        with convert_eof():
+            os.write(pipe, raw.encode('utf8'))
 
     def pydevd_notify(self, cmd_id, args):
         # TODO: docstring
