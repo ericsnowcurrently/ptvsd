@@ -1,4 +1,5 @@
 from tests.helpers.protocol import MessageCounters
+from tests.helpers.unicode import decode_recursive
 from ._fake import FakeVSC
 
 
@@ -24,12 +25,12 @@ class VSCMessages(object):
         """Return a new VSC request message."""
         if seq is None:
             seq = self.counters.next_request()
-        return {
+        return decode_recursive({
             'type': 'request',
             'seq': seq,
             'command': command,
             'arguments': args,
-        }
+        })
 
     def new_response(self, req, seq=None, **body):
         """Return a new VSC response message."""
@@ -42,7 +43,7 @@ class VSCMessages(object):
     def _new_response(self, req, err=None, seq=None, body=None):
         if seq is None:
             seq = self.counters.next_response()
-        return {
+        return decode_recursive({
             'type': 'response',
             'seq': seq,
             'request_seq': req['seq'],
@@ -50,15 +51,15 @@ class VSCMessages(object):
             'success': err is None,
             'message': err or '',
             'body': body,
-        }
+        })
 
     def new_event(self, eventname, seq=None, **body):
         """Return a new VSC event message."""
         if seq is None:
             seq = self.counters.next_event()
-        return {
+        return decode_recursive({
             'type': 'event',
             'seq': seq,
             'event': eventname,
             'body': body,
-        }
+        })

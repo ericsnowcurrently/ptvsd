@@ -1048,13 +1048,13 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
         self.PYDEVD_CMD = CMD_SET_BREAK
         self.assert_received(self.debugger, [
             self.expected_pydevd_request(
-                '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\t@HIT@ == 5\tNone'), # noqa
+                '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\t@HIT@ == 5\tNone'),  # noqa
             self.expected_pydevd_request(
-                '2\tpython-line\tspam.py\t15\tNone\tNone\tNone\t@HIT@ ==5\tNone'), # noqa
+                '2\tpython-line\tspam.py\t15\tNone\tNone\tNone\t@HIT@ ==5\tNone'),  # noqa
             self.expected_pydevd_request(
-                '3\tpython-line\tspam.py\t20\tNone\tNone\tNone\t@HIT@ > 5\tNone'), # noqa
+                '3\tpython-line\tspam.py\t20\tNone\tNone\tNone\t@HIT@ > 5\tNone'),  # noqa
             self.expected_pydevd_request(
-             '4\tpython-line\tspam.py\t25\tNone\tNone\tNone\t@HIT@ % 5 == 0\tNone'), # noqa
+             '4\tpython-line\tspam.py\t25\tNone\tNone\tNone\t@HIT@ % 5 == 0\tNone'),  # noqa
             self.expected_pydevd_request(
                 '5\tpython-line\tspam.py\t30\tNone\tNone\tNone\tx\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
@@ -1099,13 +1099,13 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
         self.PYDEVD_CMD = CMD_SET_BREAK
         self.assert_received(self.debugger, [
             self.expected_pydevd_request(
-                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr("5") + '\tNone\tTrue'), # noqa
+                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr(u'5') + '\tNone\tTrue'),  # noqa
             self.expected_pydevd_request(
-                '2\tpython-line\tspam.py\t15\tNone\tNone\t' + repr("Hello World") + '\tNone\tTrue'), # noqa
+                '2\tpython-line\tspam.py\t15\tNone\tNone\t' + repr(u'Hello World') + '\tNone\tTrue'),  # noqa
             self.expected_pydevd_request(
-                '3\tpython-line\tspam.py\t20\tNone\tNone\t"{}".format(a)\tNone\tTrue'), # noqa
+                '3\tpython-line\tspam.py\t20\tNone\tNone\t"{}".format(a)\tNone\tTrue'),  # noqa
             self.expected_pydevd_request(
-             '4\tpython-line\tspam.py\t25\tNone\tNone\t"{}+{}=Something".format(a, b)\tNone\tTrue'), # noqa
+             '4\tpython-line\tspam.py\t25\tNone\tNone\t"{}+{}=Something".format(a, b)\tNone\tTrue'),  # noqa
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1114,9 +1114,9 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
             with self.hidden():
                 self.PYDEVD_CMD = CMD_SET_BREAK
                 p1 = self.expected_pydevd_request(
-                    '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone') # noqa
+                    '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone')  # noqa
                 p2 = self.expected_pydevd_request(
-                    '2\tpython-line\tspam.py\t17\tNone\tNone\tNone\tNone\tNone') # noqa
+                    '2\tpython-line\tspam.py\t17\tNone\tNone\tNone\tNone\tNone')  # noqa
                 with self.expect_debugger_command(CMD_VERSION):
                     self.fix.send_request('setBreakpoints', dict(
                         source={'path': 'spam.py'},
@@ -1249,7 +1249,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
                 '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tdjango-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'), # noqa
+                '2\tdjango-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1261,7 +1261,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
             )
             self.send_request(
                 source={'path': 'eggs.html'},
-                breakpoints=[{'line': '17', 'logMessage': 'Hello Django World'}], # noqa
+                breakpoints=[{'line': '17', 'logMessage': 'Hello Django World'}],  # noqa
             )
             received = self.vsc.received
 
@@ -1285,10 +1285,10 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
         self.PYDEVD_CMD = CMD_SET_BREAK
         self.assert_received(self.debugger, [
             self.expected_pydevd_request(
-                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr("Hello World") + '\tNone\tTrue'), # noqa
+                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr(u'Hello World') + '\tNone\tTrue'),  # noqa
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tdjango-line\teggs.html\t17\tNone\tNone\t' + repr("Hello Django World") + '\tNone\tTrue'), # noqa
+                '2\tdjango-line\teggs.html\t17\tNone\tNone\t' + repr(u'Hello Django World') + '\tNone\tTrue'),  # noqa
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1327,7 +1327,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
                 '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'), # noqa
+                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1339,7 +1339,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
             )
             self.send_request(
                 source={'path': 'eggs.html'},
-                breakpoints=[{'line': '17', 'logMessage': 'Hello Jinja World'}], # noqa
+                breakpoints=[{'line': '17', 'logMessage': 'Hello Jinja World'}],  # noqa
             )
             received = self.vsc.received
 
@@ -1363,10 +1363,10 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
         self.PYDEVD_CMD = CMD_SET_BREAK
         self.assert_received(self.debugger, [
             self.expected_pydevd_request(
-                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr("Hello World") + '\tNone\tTrue'), # noqa
+                '1\tpython-line\tspam.py\t10\tNone\tNone\t' + repr(u'Hello World') + '\tNone\tTrue'),  # noqa
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tjinja2-line\teggs.html\t17\tNone\tNone\t' + repr("Hello Jinja World") + '\tNone\tTrue'), # noqa
+                '2\tjinja2-line\teggs.html\t17\tNone\tNone\t' + repr(u'Hello Jinja World') + '\tNone\tTrue'),  # noqa
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1405,7 +1405,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
                 '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'), # noqa
+                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -1444,7 +1444,7 @@ class SetBreakpointsTests(NormalRequestTest, unittest.TestCase):
                 '1\tpython-line\tspam.py\t10\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
             self.expected_pydevd_request(
-                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'), # noqa
+                '2\tjinja2-line\teggs.html\t17\tNone\tNone\tNone\tNone\tNone'),
             self.debugger_msgs.new_request(CMD_VERSION, '1.1\tUNIX\tID'),
         ])
 
@@ -2060,9 +2060,10 @@ class ExceptionInfoTests(NormalRequestTest, unittest.TestCase):
             received = self.vsc.received
 
         # TODO: Is this the right str?
-        excstr = "RuntimeError('something went wrong')"
-        if sys.version_info[1] < 7:
-            excstr = excstr[:-1] + ',)'
+        excstr = "RuntimeError('something went wrong',)"
+        tbstr = '  File "{}", line {}, in fail\n'.format(__file__, lineno)
+        if sys.version_info >= (3,):
+            tbstr += '    raise RuntimeError(msg)\n'
         self.assert_vsc_received(received, [
             self.expected_response(
                 exceptionId='RuntimeError',
@@ -2072,12 +2073,7 @@ class ExceptionInfoTests(NormalRequestTest, unittest.TestCase):
                     message=excstr,
                     typeName='RuntimeError',
                     source=__file__,
-                    stackTrace='\n'.join([
-                        '  File "{}", line {}, in fail'.format(__file__,
-                                                               lineno),
-                        '    raise RuntimeError(msg)',
-                        '',
-                    ]),
+                    stackTrace=tbstr,
                 ),
             ),
         ])
@@ -2590,9 +2586,7 @@ class ThreadSuspendEventTests(ThreadEventTest, unittest.TestCase):
             received = self.vsc.received
 
         # TODO: Is this the right str?
-        excstr = "RuntimeError('something went wrong')"
-        if sys.version_info[1] < 7:
-            excstr = excstr[:-1] + ',)'
+        excstr = "RuntimeError('something went wrong',)"
         self.assert_vsc_received(received, [
             self.expected_event(
                 reason='exception',
@@ -2623,9 +2617,7 @@ class ThreadSuspendEventTests(ThreadEventTest, unittest.TestCase):
             received = self.vsc.received
 
         # TODO: Is this the right str?
-        excstr = "RuntimeError('something went wrong')"
-        if sys.version_info[1] < 7:
-            excstr = excstr[:-1] + ',)'
+        excstr = "RuntimeError('something went wrong',)"
         self.assert_vsc_received(received, [
             self.expected_event(
                 reason='exception',
