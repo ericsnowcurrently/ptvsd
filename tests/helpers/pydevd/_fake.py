@@ -1,4 +1,5 @@
 import contextlib
+import sys
 import threading
 
 from _pydevd_bundle.pydevd_comm import (
@@ -164,6 +165,30 @@ class FakePyDevd(protocol.MessageDaemon):
         self.add_matcher(match, handle_request, handlername=handlername)
 
     # internal methods
+
+    def _new_sockfile(self):
+        if sys.version_info >= (3,):
+            return super(FakePyDevd, self)._new_sockfile()
+
+        def socklines():
+            lines = socket.iter_lines(
+                self._sock,
+                stop=(lambda: self._closed),
+            )
+            try:
+                for line in lines:
+                    yield line
+            except EOFError:
+                # TODO: Trigger self.close()?
+                pass
+
+        class SocketWrapper(object):
+            def __iter__(self):
+                return socklines()
+
+            def close(self):
+                pass
+        return SocketWrapper()
 
     @contextlib.contextmanager
     def _wait_for_command(self, kind, cmdid, seq=None, **kwargs):

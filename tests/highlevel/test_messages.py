@@ -794,6 +794,7 @@ class ContinueTests(NormalRequestTest, unittest.TestCase):
     PYDEVD_RESP = None
 
     def test_basic(self):
+        #self.debugger.PRINT_RECEIVED_MESSAGES = True
         with self.launched():
             with self.hidden():
                 tid, thread = self.pause('x', *[
