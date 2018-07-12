@@ -121,36 +121,56 @@ def _ensure_current_thread_will_debug(enable, is_ready, readylock):
     # pydevd relies on its own tracing function.  So we must be careful
     # to work around that.
 
-    def tracefunc(frame, event, arg):
-        if is_ready():
-            # Now we can enable debugging in the original thread.
-            enable()  # Note: This waits for the "start_pydevd" thread.
+    def handle_tracing():
+        if not is_ready():
+            return
 
-            # Remove the tracing handler.
-            debug('restoring original tracefunc')
-            with settrace_restored():
-                sys.settrace = orig_settrace
-                sys.settrace(_orig_tracefunc)
+        # Now we can enable debugging in the original thread.
+        enable()  # Note: This waits for the "start_pydevd" thread.
 
-            # Allow pydevd to proceed.
-            lock_release(readylock)
+        # Remove the tracing handler.
+        debug('restoring original tracefunc')
+        tracing.uninstall()
 
-        if _orig_tracefunc is None:
-            return None
-        return _orig_tracefunc(frame, event, arg)
+        # Allow pydevd to proceed.
+        lock_release(readylock)
     debug('injecting temp tracefunc')
-    with settrace_restored():
-        orig_settrace = sys.settrace
-        sys.settrace = _settrace
-        sys.settrace(tracefunc)
+    tracing = TracingWrapper(handle_tracing)
+    tracing.install()
 
 
 ##################################
 # monkey-patching sys.settrace()
 
-_orig_tracefunc = sys.gettrace()
+class TracingWrapper(object):
+    """A monkey-patcher for sys.settrace() that injects a handler per call."""
 
+    def __init__(self, handle_call):
+        self._handle_call = handle_call
+        self._orig_settrace = sys.settrace
+        self._orig_tracefunc = sys.gettrace()
 
-def _settrace(tracefunc):
-    global _orig_tracefunc
-    _orig_tracefunc = tracefunc
+    def install(self):
+        """Inject the wrapping settrace and tracefunc."""
+        with settrace_restored():
+            self._orig_settrace = sys.settrace
+            sys.settrace = self._settrace
+            sys.settrace(self._tracefunc)
+
+    def uninstall(self):
+        """restore the wrapped settrace and tracefunc."""
+        with settrace_restored():
+            sys.settrace = self._orig_settrace
+            sys.settrace(self._orig_tracefunc)
+
+    # internal methods
+
+    def _tracefunc(self, frame, event, arg):
+        self._handle_call()
+
+        if self._orig_tracefunc is None:
+            return None
+        return self._orig_tracefunc(frame, event, arg)
+
+    def _settrace(self, tracefunc):
+        self._orig_tracefunc = tracefunc
