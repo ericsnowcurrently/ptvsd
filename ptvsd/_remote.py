@@ -147,6 +147,7 @@ class TracingWrapper(object):
 
     def __init__(self, handle_call):
         self._handle_call = handle_call
+        self._tid = threading.current_thread().ident
         self._orig_settrace = sys.settrace
         self._orig_tracefunc = sys.gettrace()
 
@@ -156,6 +157,7 @@ class TracingWrapper(object):
             self._orig_settrace = sys.settrace
             sys.settrace = self._settrace
             sys.settrace(self._tracefunc)
+            # TODO: Also monkey-patch sys.gettrace()?
 
     def uninstall(self):
         """restore the wrapped settrace and tracefunc."""
@@ -173,4 +175,7 @@ class TracingWrapper(object):
         return self._orig_tracefunc(frame, event, arg)
 
     def _settrace(self, tracefunc):
+        if threading.current_thread().ident != self._tid:
+            self._orig_settrace(tracefunc)
+            return
         self._orig_tracefunc = tracefunc
