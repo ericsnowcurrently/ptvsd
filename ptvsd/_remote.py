@@ -1,8 +1,9 @@
 import sys
+import threading
 
 import pydevd
 
-from ptvsd._util import debug, new_hidden_thread
+from ptvsd._util import debug, new_hidden_thread, lock_release
 from ptvsd.pydevd_hooks import install, start_server
 from ptvsd.socket import Address
 
@@ -39,6 +40,16 @@ def enable_attach(address,
                   _settrace=_pydevd_settrace,
                   **kwargs):
     addr = Address.as_server(*address)
+
+    readylock = threading.Lock()
+    readylock.acquire()  # released in tracefunc() below
+
+    def notify_ready(session):
+        on_attach()
+        # Ensure that debugging has been enabled in the current thread.
+        readylock.acquire()
+        readylock.release()
+
     debug('installing ptvsd as server')
     # pydevd.settrace() forces a "client" connection, so we trick it
     # by setting start_client to start_server..
@@ -46,7 +57,7 @@ def enable_attach(address,
         _pydevd,
         addr,
         start_client=start_server,
-        notify_session_debugger_ready=(lambda s: on_attach()),
+        notify_session_debugger_ready=notify_ready,
         singlesession=False,
         **kwargs
     )
@@ -85,14 +96,34 @@ def enable_attach(address,
             **kwargs
         )
         debug('pydevd enabled (current thread)')
+    _ensure_current_thread_will_debug(
+        debug_current_thread,
+        is_ready,
+        readylock,
+    )
 
+    return daemon
+
+
+def _ensure_current_thread_will_debug(enable, is_ready, readylock):
+    # We use Python's tracing facilities to delay enabling debugging
+    # in the current thread until pydevd has started.  More or less,
+    # tracing allows us to run arbitrary code in a running thread.
+    # In this case the thread is the one where "ptvsd.enable_attach()"
+    # was called and the code we run enables debugging in that thread.
+    # The catch is that tracing is triggered only when code is executing
+    # and not if the code is blocking (e.g. IO, C code).  However,
+    # that shouldn't be a problem in practice.
+    #
+    # Also, pydevd relies on its own tracing function.  So we must be
+    # careful to work around that.  We must also take care here not
+    # to add unnecessary execution overhead.
     def tracefunc(frame, event, arg):
         if is_ready():
-            debug_current_thread()  # Note: This waits for the thread.
+            enable()  # Note: This waits for the "start_pydevd" thread.
             sys.settrace(None)
+            lock_release(readylock)
         return None
     assert sys.gettrace() is None  # TODO: Fix this.
     # TODO: pydevd will complain if already started.
     sys.settrace(tracefunc)
-
-    return daemon
