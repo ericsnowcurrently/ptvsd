@@ -4,7 +4,7 @@ import threading
 import pydevd
 
 from ptvsd._util import debug, new_hidden_thread, lock_release
-from ptvsd.pydevd_hooks import install, start_server
+from ptvsd.pydevd_hooks import install, start_server, settrace_restored
 from ptvsd.socket import Address
 
 
@@ -113,17 +113,30 @@ def _ensure_current_thread_will_debug(enable, is_ready, readylock):
     # was called and the code we run enables debugging in that thread.
     # The catch is that tracing is triggered only when code is executing
     # and not if the code is blocking (e.g. IO, C code).  However,
-    # that shouldn't be a problem in practice.
-    #
-    # Also, pydevd relies on its own tracing function.  So we must be
-    # careful to work around that.  We must also take care here not
-    # to add unnecessary execution overhead.
+    # that shouldn't be a problem in practice.  Also, since tracing can
+    # trigger a lot, we must take care here not to add unnecessary
+    # execution overhead.
+
+    # pydevd relies on its own tracing function.  So we must be careful
+    # to work around that.
+
     def tracefunc(frame, event, arg):
-        if is_ready():
-            enable()  # Note: This waits for the "start_pydevd" thread.
+        if not is_ready():
+            return None
+
+        # Now we can enable debugging in the original thread.
+        enable()  # Note: This waits for the "start_pydevd" thread.
+
+        # Remove the tracing handler.
+        debug('restoring original tracefunc')
+        with settrace_restored():
             sys.settrace(None)
-            lock_release(readylock)
+
+        # Allow pydevd to proceed.
+        lock_release(readylock)
+
         return None
-    assert sys.gettrace() is None  # TODO: Fix this.
-    # TODO: pydevd will complain if already started.
-    sys.settrace(tracefunc)
+    debug('injecting temp tracefunc')
+    with settrace_restored():
+        assert sys.gettrace() is None  # TODO: Fix this.
+        sys.settrace(tracefunc)
