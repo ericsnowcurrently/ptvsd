@@ -1,3 +1,5 @@
+import sys
+
 import pydevd
 
 from ptvsd._util import debug, new_hidden_thread
@@ -30,6 +32,7 @@ def _pydevd_settrace(redirect_output=None, _pydevd=pydevd, **kwargs):
 
 def enable_attach(address,
                   on_attach=(lambda: None),
+                  is_ready=(lambda: True),
                   redirect_output=True,
                   _pydevd=pydevd,
                   _install=install,
@@ -64,10 +67,6 @@ def enable_attach(address,
     t = new_hidden_thread('start-pydevd', start_pydevd)
     t.start()
 
-    def wait(timeout=None):
-        t.join(timeout)
-        return not t.is_alive()
-
     def debug_current_thread(suspend=False, **kwargs):
         # Make sure that pydevd has finished starting before enabling
         # in the current thread.
@@ -86,4 +85,14 @@ def enable_attach(address,
             **kwargs
         )
         debug('pydevd enabled (current thread)')
-    return daemon, wait, debug_current_thread
+
+    def tracefunc(frame, event, arg):
+        if is_ready():
+            debug_current_thread()  # Note: This waits for the thread.
+            sys.settrace(None)
+        return None
+    assert sys.gettrace() is None  # TODO: Fix this.
+    # TODO: pydevd will complain if already started.
+    sys.settrace(tracefunc)
+
+    return daemon

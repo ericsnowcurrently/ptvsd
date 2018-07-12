@@ -11,15 +11,11 @@ from ptvsd._remote import (
 )
 
 
-WAIT_TIMEOUT = 1.0
-
 DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 5678
 
 _enabled = False
 _attached = threading.Event()
-_debug_current_thread = None
-_pending_threads = set()
 
 
 def wait_for_attach(timeout=None):
@@ -33,14 +29,6 @@ def wait_for_attach(timeout=None):
         The timeout for the operation in seconds (or fractions thereof).
     """
     _attached.wait(timeout)
-
-    tid = threading.current_thread().ident
-    if tid in _pending_threads:
-        _pending_threads.remove(tid)
-        # Enable pydevd in the current thread.  This is necessary because
-        # we started pydevd in a new thread.  We must do it here because
-        # that previous invocation must have finished already.
-        _debug_current_thread()
 
 
 def enable_attach(address=(DEFAULT_HOST, DEFAULT_PORT), redirect_output=True):
@@ -77,28 +65,12 @@ def enable_attach(address=(DEFAULT_HOST, DEFAULT_PORT), redirect_output=True):
     _enabled = True
     _attached.clear()
 
-    # Note: this only starts pydevd (e.g. sets it up) and enables
-    # debugging for *future* threads.  It does not actually enable
-    # debugging in the *current* thread.  That is done in
-    # wait_for_attach().  Thus this approach is problematic if
-    # wait_for_attach() is never called.
-    # TODO: Is there any way to ensure that debug_current_thread()
-    # gets called in the current thread, regardless of if
-    # wait_for_attach() gets called?
-    _, wait, debug_current_thread = ptvsd_enable_attach(
+    ptvsd_enable_attach(
         address,
         on_attach=_attached.set,
+        is_ready=_attached.is_set,
         redirect_output=redirect_output,
     )
-    global _debug_current_thread
-    _debug_current_thread = debug_current_thread
-
-    # Give it a chance to finish starting.  This helps reduce possible
-    # issues due to relying on wait_for_attach().
-    if wait(WAIT_TIMEOUT):
-        debug_current_thread()
-    else:
-        _pending_threads.add(threading.current_thread().ident)
 
 
 # TODO: Add disable_attach()?
