@@ -46,6 +46,7 @@ def enable_attach(address,
 
     def notify_ready(session):
         on_attach()
+        debug('attached')
         # Ensure that debugging has been enabled in the current thread.
         readylock.acquire()
         readylock.release()
@@ -121,22 +122,35 @@ def _ensure_current_thread_will_debug(enable, is_ready, readylock):
     # to work around that.
 
     def tracefunc(frame, event, arg):
-        if not is_ready():
+        if is_ready():
+            # Now we can enable debugging in the original thread.
+            enable()  # Note: This waits for the "start_pydevd" thread.
+
+            # Remove the tracing handler.
+            debug('restoring original tracefunc')
+            with settrace_restored():
+                sys.settrace = orig_settrace
+                sys.settrace(_orig_tracefunc)
+
+            # Allow pydevd to proceed.
+            lock_release(readylock)
+
+        if _orig_tracefunc is None:
             return None
-
-        # Now we can enable debugging in the original thread.
-        enable()  # Note: This waits for the "start_pydevd" thread.
-
-        # Remove the tracing handler.
-        debug('restoring original tracefunc')
-        with settrace_restored():
-            sys.settrace(None)
-
-        # Allow pydevd to proceed.
-        lock_release(readylock)
-
-        return None
+        return _orig_tracefunc(frame, event, arg)
     debug('injecting temp tracefunc')
     with settrace_restored():
-        assert sys.gettrace() is None  # TODO: Fix this.
+        orig_settrace = sys.settrace
+        sys.settrace = _settrace
         sys.settrace(tracefunc)
+
+
+##################################
+# monkey-patching sys.settrace()
+
+_orig_tracefunc = sys.gettrace()
+
+
+def _settrace(tracefunc):
+    global _orig_tracefunc
+    _orig_tracefunc = tracefunc
