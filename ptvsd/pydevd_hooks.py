@@ -1,6 +1,9 @@
+import contextlib
 import sys
+import threading
 
 from _pydevd_bundle import pydevd_comm
+from pydevd import pydevd_tracing
 
 from ptvsd.socket import Address
 from ptvsd.daemon import Daemon, DaemonStoppedError, DaemonClosedError
@@ -94,3 +97,44 @@ def install(pydevd, address,
             __main__.start_server = _start_server
             __main__.start_client = _start_client
     return daemon
+
+
+##################################
+# monkey-patching sys.settrace()
+
+_replace_settrace = pydevd_tracing.replace_sys_set_trace_func
+_restore_settrace = pydevd_tracing.restore_sys_set_trace_func
+
+
+@contextlib.contextmanager
+def protect_settrace():
+    """A context manager that keeps pydevd from replacing sys.settrace()."""
+    lock = threading.Lock()
+    lock.acquire()  # released when we're done
+
+    # Avoid races with managing sys.settrace.
+    def replace():
+        lock.acquire()
+        lock.release()
+        pydevd_tracing.replace_sys_set_trace_func = _replace_settrace
+        _replace_settrace()
+    pydevd_tracing.replace_sys_set_trace_func = replace
+    try:
+        yield
+    finally:
+        lock.release()
+
+
+@contextlib.contextmanager
+def settrace_restored(orig=sys.settrace):
+    """A context manager that temporary restores the original sys.settrace."""
+    with protect_settrace():
+        before = sys.gettrace
+        _restore_settrace()
+        after = sys.gettrace
+        try:
+            yield after
+        finally:
+            if after is not before:
+                # pydevd was already installed
+                _replace_settrace()
