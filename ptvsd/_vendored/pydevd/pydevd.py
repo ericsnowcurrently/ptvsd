@@ -931,6 +931,9 @@ class PyDB:
 
     def update_trace(self, frame, dispatch_func, overwrite_prev):
         if frame.f_trace is None:
+            if frame.f_code.co_filename.endswith('spam.py'):
+                #raise Exception
+                print('&&&&&&&', frame, frame.f_code.co_name, frame.f_trace)
             frame.f_trace = dispatch_func
         else:
             if overwrite_prev:

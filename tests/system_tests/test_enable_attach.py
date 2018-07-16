@@ -50,6 +50,8 @@ class EnableAttachTests(LifecycleTestsBase, unittest.TestCase):
             sys.path.insert(0, {!r})
             import ptvsd
             ptvsd.enable_attach({}, redirect_output=False)
+            print('current:', threading.current_thread().ident)
+            print(sys._getframe().f_trace)
             # <ready>
             print('== ready ==')
 
@@ -65,6 +67,7 @@ class EnableAttachTests(LifecycleTestsBase, unittest.TestCase):
                 if not t.is_alive():
                     break
             t.join()
+            print(sys._getframe().f_trace)
 
             print('== starting ==')
             # <bp>
@@ -84,8 +87,8 @@ class EnableAttachTests(LifecycleTestsBase, unittest.TestCase):
             ],
         }]
 
-        #DebugAdapter.VERBOSE = True
-        #DebugClient.SESSION.VERBOSE = True
+        DebugAdapter.VERBOSE = True
+        DebugClient.SESSION.VERBOSE = True
         adapter = DebugAdapter.start_embedded(
             addr,
             filename,

@@ -2,9 +2,12 @@ import sys
 import threading
 
 import pydevd
+from _pydevd_bundle import pydevd_trace_dispatch
 
 from ptvsd._util import debug, new_hidden_thread, lock_release
-from ptvsd.pydevd_hooks import install, start_server, settrace_restored
+from ptvsd.pydevd_hooks import (
+    install, start_server, settrace_restored, protect_frames,
+)
 from ptvsd.socket import Address
 
 
@@ -65,22 +68,6 @@ def enable_attach(address,
 
     # Start pydevd using threads and monkey-patching sys.settrace.
 
-    def start_pydevd():
-        debug('enabling pydevd')
-        # Only pass the port so start_server() gets triggered.
-        # As noted above, we also have to trick settrace() because it
-        # *always* forces a client connection.
-        _settrace(
-            stdoutToServer=redirect_output,
-            stderrToServer=redirect_output,
-            port=addr.port,
-            suspend=False,
-            _pydevd=_pydevd,
-        )
-        debug('pydevd enabled')
-    t = new_hidden_thread('start-pydevd', start_pydevd)
-    t.start()
-
     def debug_current_thread(suspend=False, **kwargs):
         # Make sure that pydevd has finished starting before enabling
         # in the current thread.
@@ -99,11 +86,27 @@ def enable_attach(address,
             **kwargs
         )
         debug('pydevd enabled (current thread)')
-    _ensure_current_thread_will_debug(
+    tracing = _ensure_current_thread_will_debug(
         debug_current_thread,
         is_ready,
         readylock,
     )
+
+    def start_pydevd():
+        debug('enabling pydevd')
+        # Only pass the port so start_server() gets triggered.
+        # As noted above, we also have to trick settrace() because it
+        # *always* forces a client connection.
+        _settrace(
+            stdoutToServer=redirect_output,
+            stderrToServer=redirect_output,
+            port=addr.port,
+            suspend=False,
+            _pydevd=_pydevd,
+        )
+        debug('pydevd enabled')
+    t = new_hidden_thread('start-pydevd', start_pydevd)
+    t.start()
 
     return daemon
 
@@ -139,6 +142,9 @@ def _ensure_current_thread_will_debug(enable, is_ready, readylock):
     debug('injecting temp tracefunc')
     tracing = TracingWrapper(handle_tracing)
     tracing.install()
+    from _pydevd_bundle.pydevd_additional_thread_info import PyDBAdditionalThreadInfo
+    print(PyDBAdditionalThreadInfo.iter_frames)
+    return tracing
 
 
 ##################################
@@ -147,29 +153,63 @@ def _ensure_current_thread_will_debug(enable, is_ready, readylock):
 class TracingWrapper(object):
     """A monkey-patcher for sys.settrace() that injects a handler per call."""
 
+    HIDDEN = pydevd_trace_dispatch.trace_dispatch
+
+    @classmethod
+    def _get_caller(cls):
+        f = sys._getframe()
+        while f and f.f_code.co_name != 'enable_attach':
+            f = f.f_back
+        while f and f.f_code.co_name == 'enable_attach':
+            f = f.f_back
+        return f
+
     def __init__(self, handle_call):
         self._handle_call = handle_call
         self._tid = threading.current_thread().ident
+        self._caller = self._get_caller()
         self._orig_settrace = sys.settrace
         self._orig_tracefunc = sys.gettrace()
+        self._orig_f_tracefunc = self._caller.f_trace
+        self._revive_frames = None
 
     def install(self):
         """Inject the wrapping settrace and tracefunc."""
+        self._revive_frames = self._protect_frames()
+        if self._orig_f_tracefunc is self.HIDDEN:
+            def _local_tracefunc(frame, event, arg):
+                print('          ** tracing local **')
+                self._handle_call()
+                return _local_tracefunc
+        else:
+            def _local_tracefunc(frame, event, arg):
+                print('          ** tracing local **')
+                self._handle_call()
+                if self._orig_f_tracefunc is not None:
+                    self._orig_f_tracefunc =  self._orig_f_tracefunc(
+                        frame, event, arg)
+                return _local_tracefunc
+
         with settrace_restored():
             self._orig_settrace = sys.settrace
             sys.settrace = self._settrace
+            self._caller.f_trace = _local_tracefunc
             sys.settrace(self._tracefunc)
             # TODO: Also monkey-patch sys.gettrace()?
 
     def uninstall(self):
         """restore the wrapped settrace and tracefunc."""
+        if self._revive_frames is not None:
+            self._revive_frames()
         with settrace_restored():
             sys.settrace = self._orig_settrace
+            self._caller.f_trace = self._orig_f_tracefunc
             sys.settrace(self._orig_tracefunc)
 
     # internal methods
 
     def _tracefunc(self, frame, event, arg):
+        print('          ** tracing **')
         self._handle_call()
 
         if self._orig_tracefunc is None:
@@ -177,7 +217,33 @@ class TracingWrapper(object):
         return self._orig_tracefunc(frame, event, arg)
 
     def _settrace(self, tracefunc):
-        if threading.current_thread().ident != self._tid:
+        tid = threading.current_thread().ident
+        if tid != self._tid:
             self._orig_settrace(tracefunc)
+        else:
+            self._orig_tracefunc = tracefunc
+
+    def _protect_frames(self):
+        return protect_frames(
+            (lambda f: f is self._caller),
+            FrameWrapper,
+        )
+
+
+class FrameWrapper(object):  # types.FrameType
+
+    def __new__(cls, frame):
+        if type(frame) is cls:
+            return frame
+        return object.__new__(cls)
+
+    def __init__(self, frame):
+        self._frame = frame
+
+    def __getattr__(self, name):
+        return getattr(self._frame, name)
+
+    def __setattr__(self, name, value):
+        if name == 'f_trace':
             return
-        self._orig_tracefunc = tracefunc
+        setattr(self._frame, name, value)

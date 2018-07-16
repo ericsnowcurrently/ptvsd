@@ -2,7 +2,8 @@ import contextlib
 import sys
 import threading
 
-from _pydevd_bundle import pydevd_comm
+from _pydevd_bundle import pydevd_comm, pydevd_additional_thread_info
+from _pydevd_bundle.pydevd_additional_thread_info import PyDBAdditionalThreadInfo
 from pydevd import pydevd_tracing
 
 from ptvsd.socket import Address
@@ -104,6 +105,25 @@ def install(pydevd, address,
 
 _replace_settrace = pydevd_tracing.replace_sys_set_trace_func
 _restore_settrace = pydevd_tracing.restore_sys_set_trace_func
+
+
+def protect_frames(match, wrap):
+    """Temporarily monkey-patch PyDBAdditionalThreadInfo.iter_frames."""
+    def wrapped(self, t):
+        print('**', t.ident, '**')
+        frames = []
+        for frame in orig(self, t):
+            if match(frame):
+                frame = wrap(frame)
+                print('** wrapped', frame, '**')
+            frames.append(frame)
+        return frames
+    orig = vars(PyDBAdditionalThreadInfo)['iter_frames']
+    PyDBAdditionalThreadInfo.iter_frames = wrapped
+
+    def revive():
+        PyDBAdditionalThreadInfo.iter_frames = orig
+    return revive
 
 
 @contextlib.contextmanager
