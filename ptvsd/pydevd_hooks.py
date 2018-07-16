@@ -104,37 +104,6 @@ def install(pydevd, address,
 
 _replace_settrace = pydevd_tracing.replace_sys_set_trace_func
 _restore_settrace = pydevd_tracing.restore_sys_set_trace_func
-_settrace_active = None
-
-
-def guard_settrace():
-    """Monkey-patch pydevd_tracing to revive a replaced sys.settrace()."""
-    global _settrace_active
-    assert _settrace_active is None
-    before = sys.settrace
-    _restore_settrace()
-    after = sys.settrace
-    _settrace_active = (after is not before)
-    if _settrace_active:
-        _replace_settrace()
-        return (lambda: None)
-
-    def replace():
-        global _settrace_active
-        _settrace_active = True
-    pydevd_tracing.replace_sys_set_trace_func = replace
-
-    def restore():
-        global _settrace_active
-        _settrace_active = False
-    pydevd_tracing.restore_sys_set_trace_func = restore
-
-    def revive():
-        pydevd_tracing.replace_sys_set_trace_func = _replace_settrace
-        pydevd_tracing.restore_sys_set_trace_func = _restore_settrace
-        if _settrace_active:
-            _replace_settrace()
-    return revive
 
 
 @contextlib.contextmanager

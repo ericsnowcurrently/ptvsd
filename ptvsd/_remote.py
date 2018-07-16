@@ -4,9 +4,7 @@ import threading
 import pydevd
 
 from ptvsd._util import debug, new_hidden_thread, lock_release
-from ptvsd.pydevd_hooks import (
-    install, start_server, settrace_restored, guard_settrace,
-)
+from ptvsd.pydevd_hooks import install, start_server, settrace_restored
 from ptvsd.socket import Address
 
 
@@ -67,10 +65,6 @@ def enable_attach(address,
 
     # Start pydevd using threads and monkey-patching sys.settrace.
 
-    with settrace_restored():
-        # This must be done before pydevd is started.
-        revive = guard_settrace()
-
     def start_pydevd():
         debug('enabling pydevd')
         # Only pass the port so start_server() gets triggered.
@@ -83,8 +77,6 @@ def enable_attach(address,
             suspend=False,
             _pydevd=_pydevd,
         )
-        with settrace_restored():
-            revive()
         debug('pydevd enabled')
     t = new_hidden_thread('start-pydevd', start_pydevd)
     t.start()
